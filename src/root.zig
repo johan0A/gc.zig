@@ -1,5 +1,5 @@
 pub const Gc = @import("Gc.zig");
-pub const BdwGarbageCollector = @import("bdwgc.zig");
+pub const bdwgc = @import("bdwgc.zig");
 
 const std = @import("std");
 

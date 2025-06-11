@@ -1,12 +1,18 @@
 .{
-    .name = "zig_gc",
-    .version = "0.0.0",
-    .dependencies = .{},
+    .name = .gc,
+    .version = "0.1.0",
+    .fingerprint = 0xbfdedf7da7e70e91, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+        .bdwgc = .{
+            .url = "git+https://github.com/ivmai/bdwgc#9e224cb87759c1ca420a5cd5c6082d29b9ed58cb",
+            .hash = "N-V-__8AAOOlLgDLwcDKt7y40crc8-egXF1or0HkThBiWoZH",
+        },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",
         "src",
-        "bdwgc",
         "LICENSE",
         "README.md",
     },

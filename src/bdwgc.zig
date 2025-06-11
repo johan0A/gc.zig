@@ -1,55 +1,32 @@
 const std = @import("std");
-const Gc = @import("Gc.zig");
-
 const Allocator = std.mem.Allocator;
-
-const c = @cImport(
-    @cInclude("gc.h"),
-);
-
-const Self = @This();
-
-fn getHeader(ptr: [*]u8) *[*]u8 {
-    return @as(*[*]u8, @ptrFromInt(@intFromPtr(ptr) - @sizeOf(usize)));
-}
+const Gc = @import("Gc.zig");
+pub const c = @import("c");
 
 fn alloc(
     _: *anyopaque,
     len: usize,
-    log2_align: u8,
-    _: usize,
+    alignment: std.mem.Alignment,
+    ret_addr: usize,
 ) ?[*]u8 {
-    std.debug.assert(len > 0);
-
-    // Thin wrapper around GC_malloc, overallocate to account for
-    // alignment padding and store the original malloc()'ed pointer before
-    // the aligned address.
-    const alignment = @as(usize, 1) << @as(Allocator.Log2Align, @intCast(log2_align));
-    const unaligned_ptr = @as([*]u8, @ptrCast(c.GC_malloc(len + alignment - 1 + @sizeOf(usize)) orelse return null));
-    const unaligned_addr = @intFromPtr(unaligned_ptr);
-    const aligned_addr = std.mem.alignForward(usize, unaligned_addr + @sizeOf(usize), alignment);
-    const aligned_ptr = unaligned_ptr + (aligned_addr - unaligned_addr);
-    getHeader(aligned_ptr).* = unaligned_ptr;
-
-    return aligned_ptr;
-}
-
-fn allocSize(ptr: [*]u8) usize {
-    const unaligned_ptr = getHeader(ptr).*;
-    const delta = @intFromPtr(ptr) - @intFromPtr(unaligned_ptr);
-    return c.GC_size(unaligned_ptr) - delta;
+    _ = ret_addr;
+    var ptr: [*]u8 = undefined;
+    if (c.GC_posix_memalign(@ptrCast(&ptr), @max(alignment.toByteUnits(), @sizeOf(usize)), len) != 0) return null;
+    return ptr;
 }
 
 fn resize(
     _: *anyopaque,
     buf: []u8,
-    _: u8,
+    alignment: std.mem.Alignment,
     new_len: usize,
-    _: usize,
+    ret_addr: usize,
 ) bool {
+    _ = alignment;
+    _ = ret_addr;
     if (new_len <= buf.len) return true;
 
-    const full_len = allocSize(buf.ptr);
+    const full_len = c.GC_size(buf.ptr);
     if (new_len <= full_len) return true;
 
     return false;
@@ -57,26 +34,24 @@ fn resize(
 
 fn free(
     _: *anyopaque,
-    buf: []u8,
-    log2_buf_align: u8,
-    return_address: usize,
+    memory: []u8,
+    alignment: std.mem.Alignment,
+    ret_addr: usize,
 ) void {
-    _ = log2_buf_align;
-    _ = return_address;
-    const unaligned_ptr = getHeader(buf.ptr).*;
-    c.GC_free(unaligned_ptr);
+    _ = alignment;
+    _ = ret_addr;
+    c.GC_free(memory.ptr);
 }
 
 pub fn allocator() Allocator {
-    if (c.GC_is_init_called() == 0) {
-        c.GC_init();
-    }
+    if (c.GC_is_init_called() == 0) c.GC_init();
 
     return Allocator{
         .ptr = undefined,
         .vtable = &.{
             .alloc = alloc,
             .resize = resize,
+            .remap = Allocator.noRemap,
             .free = free,
         },
     };
@@ -117,7 +92,7 @@ pub fn collect(stopFn: c.GC_stop_func) !void {
 
 // Perform the collector shutdown.  (E.g. dispose critical sections on
 // Win32 target.)  A duplicate invocation is a no-op.  GC_INIT should
-// not be called after the shutdown.  See also GC_win32_free_heap().
+// not be called after the shutdown. See also GC_win32_free_heap().
 pub fn deinit() void {
     c.GC_deinit();
 }
