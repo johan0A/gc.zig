@@ -9,41 +9,26 @@ const c = @cImport(
 
 const Self = @This();
 
-fn getHeader(ptr: [*]u8) *[*]u8 {
-    return @as(*[*]u8, @ptrFromInt(@intFromPtr(ptr) - @sizeOf(usize)));
-}
-
 fn alloc(
     _: *anyopaque,
     len: usize,
-    log2_align: u8,
+    alignment: std.mem.Alignment,
     _: usize,
 ) ?[*]u8 {
-    std.debug.assert(len > 0);
-
-    // Thin wrapper around GC_malloc, overallocate to account for
-    // alignment padding and store the original malloc()'ed pointer before
-    // the aligned address.
-    const alignment = @as(usize, 1) << @as(Allocator.Log2Align, @intCast(log2_align));
-    const unaligned_ptr = @as([*]u8, @ptrCast(c.GC_malloc(len + alignment - 1 + @sizeOf(usize)) orelse return null));
-    const unaligned_addr = @intFromPtr(unaligned_ptr);
-    const aligned_addr = std.mem.alignForward(usize, unaligned_addr + @sizeOf(usize), alignment);
-    const aligned_ptr = unaligned_ptr + (aligned_addr - unaligned_addr);
-    getHeader(aligned_ptr).* = unaligned_ptr;
-
-    return aligned_ptr;
+    var ptr: [*]u8 = undefined;
+    const ret = c.GC_posix_memalign(@ptrCast(&ptr), alignment.toByteUnits(), len);
+    if (ret != 0) return null;
+    return ptr;
 }
 
 fn allocSize(ptr: [*]u8) usize {
-    const unaligned_ptr = getHeader(ptr).*;
-    const delta = @intFromPtr(ptr) - @intFromPtr(unaligned_ptr);
-    return c.GC_size(unaligned_ptr) - delta;
+    return c.GC_size(ptr);
 }
 
 fn resize(
     _: *anyopaque,
     buf: []u8,
-    _: u8,
+    _: std.mem.Alignment,
     new_len: usize,
     _: usize,
 ) bool {
@@ -58,13 +43,10 @@ fn resize(
 fn free(
     _: *anyopaque,
     buf: []u8,
-    log2_buf_align: u8,
-    return_address: usize,
+    _: std.mem.Alignment,
+    _: usize,
 ) void {
-    _ = log2_buf_align;
-    _ = return_address;
-    const unaligned_ptr = getHeader(buf.ptr).*;
-    c.GC_free(unaligned_ptr);
+    c.GC_free(buf.ptr);
 }
 
 pub fn allocator() Allocator {
@@ -77,6 +59,7 @@ pub fn allocator() Allocator {
         .vtable = &.{
             .alloc = alloc,
             .resize = resize,
+            .remap = std.mem.Allocator.noRemap,
             .free = free,
         },
     };

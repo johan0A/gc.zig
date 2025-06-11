@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         });
 
-        if (target.result.isDarwin()) module.linkFramework("Foundation", .{});
+        if (target.result.isDarwinLibC()) module.linkFramework("Foundation", .{});
         module.addIncludePath(b.path("bdwgc/include"));
 
         const c_source_files = [_][]const u8{
@@ -47,11 +47,11 @@ pub fn build(b: *std.Build) void {
 
     {
         const module_unit_tests = b.addTest(.{
-            .root_source_file = b.path("src/module.zig"),
+            // .root_source_file = b.path("src/module.zig"),
             .target = target,
             .optimize = optimize,
+            .root_module = module,
         });
-        module_unit_tests.root_module = module.*;
 
         const run_lib_unit_tests = b.addRunArtifact(module_unit_tests);
 
