@@ -10,19 +10,21 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const bdwgc_dep = b.dependency("bdwgc", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    const gc_artifact = bdwgc_dep.artifact("gc");
-    root_module.linkLibrary(gc_artifact);
+    {
+        const bdwgc_dep = b.dependency("bdwgc", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        const gc_artifact = bdwgc_dep.artifact("gc");
+        root_module.linkLibrary(gc_artifact);
 
-    const translate_c = b.addTranslateC(.{
-        .root_source_file = gc_artifact.getEmittedIncludeTree().path(b, "gc.h"),
-        .target = target,
-        .optimize = optimize,
-    });
-    root_module.addImport("c", translate_c.createModule());
+        const translate_c = b.addTranslateC(.{
+            .root_source_file = gc_artifact.getEmittedIncludeTree().path(b, "gc.h"),
+            .target = target,
+            .optimize = optimize,
+        });
+        root_module.addImport("c", translate_c.createModule());
+    }
 
     {
         const lib_unit_tests = b.addTest(.{ .root_module = root_module });

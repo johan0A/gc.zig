@@ -1,8 +1,6 @@
-pub const Gc = @import("Gc.zig");
 pub const bdwgc = @import("bdwgc.zig");
 
-const std = @import("std");
-
 test {
+    const std = @import("std");
     std.testing.refAllDecls(@This());
 }

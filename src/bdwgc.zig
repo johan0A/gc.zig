@@ -1,6 +1,5 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const Gc = @import("Gc.zig");
 pub const c = @import("c");
 
 fn alloc(
@@ -57,10 +56,6 @@ pub fn allocator() Allocator {
     };
 }
 
-pub fn gc() Gc {
-    return Gc.init(allocator());
-}
-
 pub fn getHeapSize() usize {
     return c.GC_get_heap_size();
 }
@@ -84,8 +79,8 @@ pub fn getMemoryUse() usize {
 ///  to start from the beginning.  stopFn must not be 0.
 ///  GC_try_to_collect() returns 0 if the collection was aborted (or the
 ///  collections are disabled), 1 if it succeeded.
-pub fn collect(stopFn: c.GC_stop_func) !void {
-    if (c.GC_try_to_collect(stopFn) == 0) {
+pub fn collect(stop_fn: c.GC_stop_func) !void {
+    if (c.GC_try_to_collect(stop_fn) == 0) {
         return error.CollectionAborted;
     }
 }
