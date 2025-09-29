@@ -25,7 +25,7 @@ pub fn main() !void {
 1. Add `gc` to the depency list in `build.zig.zon`: 
 
 ```sh
-zig fetch --save git+https://github.com/johan0A/gc.zig#v0.1.0
+zig fetch --save git+https://github.com/johan0A/gc.zig
 ```
 
 2. Config `build.zig`:
